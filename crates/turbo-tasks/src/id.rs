@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     fmt::{Debug, Display},
+    mem::ManuallyDrop,
     ops::Deref,
 };
 
@@ -223,5 +224,31 @@ impl<'de> Deserialize<'de> for TaskId {
         }
 
         deserializer.deserialize_u64(V)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::id::{with_task_id_mapping, IdMapping, TaskId};
+
+    struct IdentIdMapping<'a>(&'a usize);
+    impl<'a> IdMapping<TaskId> for IdentIdMapping<'a> {
+        fn forward(&self, _id: TaskId) -> usize {
+            self.0 + 1
+        }
+        fn backward(&self, id: usize) -> TaskId {
+            id.into()
+        }
+    }
+
+    #[test]
+    fn with_task_id_mapping_panic() {
+        let _ = std::panic::catch_unwind(|| {
+            let tid = 5;
+            let m = IdentIdMapping(&tid);
+            with_task_id_mapping(m, || panic!("with_task_id_mapping_panic"))
+        });
+        let tid: TaskId = 4.into();
+        println!("{:?}", serde_json::to_string(&tid));
     }
 }
